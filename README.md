@@ -1,6 +1,4 @@
-# Predicting the site of C–H borylation — standalone pipeline
-
-This folder reproduces every number, table and figure of the thesis with one command, without notebooks.
+# Predicting the site of C–H borylation
 
 ```
 python run_all.py --xtb <path to xtb>           # first run about 2 h; later runs reuse the slow steps saved in outputs/
