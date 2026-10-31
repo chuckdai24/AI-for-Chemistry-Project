@@ -1,8 +1,29 @@
-# Predicting the site of C–H borylation
+# Predicting the Site of C–H Borylation with Machine Learning: Gains over a Steric Rule
 
-Source code and data for the paper. Given a substrate and reaction conditions, the model ranks the
-C–H bonds of the substrate by how likely each is to be borylated. `run_all.py` reproduces every
-number, table and figure in the paper with one command.
+Chengzhi Dai, Casper van Koningsveld and Jordi Vermeer
+
+Source code and data for the paper. A random forest ranks the C–H bonds of a substrate under given
+reaction conditions and predicts the major borylation site across catalytic systems. Each site is
+described by interpretable steric, electronic and directing-group descriptors, the reaction conditions
+and a rule score; the model is compared with random ranking and a steric rule by top-1 accuracy.
+`run_all.py` reproduces every number, table and figure of the paper (except the schematic Fig. 1)
+with one command.
+
+## Main results
+
+637 reactions from 46 publications, 3,711 candidate C–H sites; 57 candidate descriptors in 12 groups,
+of which backward elimination kept 30 in 7 groups.
+
+| Top-1 accuracy | Random ranking | Steric rule | Random forest |
+|---|---|---|---|
+| Training set, publication-grouped CV | 0.21 | 0.37 | 0.58 |
+| Training set, reaction-grouped CV | 0.21 | 0.37 | 0.81 |
+| Test set (128 reactions) | 0.20 | 0.39 | 0.84 |
+
+The gain over the steric rule is largest for directed reactions (0.84 vs. 0.13 in publication-grouped
+CV); for undirected Ir catalysis it is not significant for unseen publications (0.54 vs. 0.46).
+
+## Usage
 
 ```
 python run_all.py --xtb <path to xtb>           # first run about 2 h; later runs reuse the slow steps saved in outputs/
@@ -32,7 +53,7 @@ tree ensembles slightly.
 
 | Path | What it is |
 |---|---|
-| `data/CH_borylation_ChemAI_assessment.csv` | Base dataset. Not ours to redistribute, so not included; place the file at this path before running |
+| `data/CH_borylation_ChemAI_assessment.csv` | Course dataset (744 product sites from 628 reactions). Not ours to redistribute, so not included; place the file at this path before running |
 | `data/new_reactions.csv` | The ten reactions added from the literature (Table S2); `new_reactions_sources.csv` gives the source and evidence for each |
 | `data/precomputed_descriptors.csv` | The Sterimol and GFN2-xTB descriptors as used in the paper; read only with `--precomputed`, otherwise used to check the new calculation |
 
@@ -51,23 +72,29 @@ reaction conditions, rule score) with RDKit. The xtb results of each substrate a
 
 ## What `run_all.py` does
 
-| Section | Step | Output |
-|---|---|---|
-| 1 | Merge the base dataset and the ten added reactions; clean (Table S1) | `outputs/data/reactions_merged_clean.csv` |
-| 2 | Enumerate C–H sites, merge equivalent carbons, label borylated and major sites | `outputs/data/sites.csv` |
-| 3 | Set aside 20% of reactions as the test set (by reaction, seed 42) | `outputs/data/test_reaction_ids.txt` |
-| 4 | 57 candidate descriptors in 12 groups (Table 1), including Sterimol and xTB | `outputs/data/qm_descriptors.csv`, `outputs/data/candidate_descriptors.csv`, Fig. 1 |
-| 5 | Baselines: random ranking and the steric rule | `baselines_training_set.csv` |
-| 6 | Group-wise backward elimination with a fixed random forest | `selection_backward_elimination.csv`, Fig. 2 |
-| 7 | Nine classifiers on the selected descriptors; tuning of the best (Table S3) | `model_comparison.csv`, `table_s3_tuning.csv`, Fig. 3 |
-| 8 | Final model vs. baselines on the training set, by catalytic system | `fig4_ci_training_by_system.csv`, Fig. 4 |
-| 9 | Final model on the test set (used once) | `fig5_ci_test.csv`, Fig. 5 |
-| 10 | Prediction examples | Fig. 6 |
-| 11 | Key numbers | `summary.csv` |
+| Section | Step | Paper | Output |
+|---|---|---|---|
+| 1 | Merge the course dataset and the ten added reactions; clean | Table S1 | `outputs/data/reactions_merged_clean.csv` |
+| 2 | Enumerate C–H sites, merge equivalent carbons, label borylated and major sites | Section 2.1 | `outputs/data/sites.csv` |
+| 3 | Set aside 20% of reactions as the test set (by reaction, seed 42) | Section 2.4 | `outputs/data/test_reaction_ids.txt` |
+| 4 | 57 candidate descriptors in 12 groups, including Sterimol and xTB | Table 1, Fig. 2 | `outputs/data/qm_descriptors.csv`, `outputs/data/candidate_descriptors.csv`, `fig1_dataset` |
+| 5 | Baselines: random ranking and the steric rule | Section 2.4 | `baselines_training_set.csv` |
+| 6 | Group-wise backward elimination with a fixed random forest | Fig. 3 | `selection_backward_elimination.csv`, `fig2_backward_elimination` |
+| 7 | Nine classifiers on the selected descriptors; tuning of the best | Fig. 4, Table S3 | `model_comparison.csv`, `table_s3_tuning.csv`, `fig3_model_comparison` |
+| 8 | Final model vs. baselines on the training set, by catalytic system | Fig. 5 | `fig4_ci_training_by_system.csv`, `fig4_training_set` |
+| 9 | Final model on the test set (used once) | Fig. 6 | `fig5_ci_test.csv`, `fig5_test_set` |
+| 10 | Prediction examples on the test set | – | `fig6_examples.png` |
+| 11 | Key numbers | – | `summary.csv` |
 
-Tables are in `outputs/results/`, figures (PNG and PDF) in `outputs/figures/`. All choices
+Tables are in `outputs/results/`, figures (PNG and PDF) in `outputs/figures/`. The output file names
+are numbered by pipeline step, not by figure in the paper (see the Paper column). All choices
 (descriptors, model, hyperparameters) use publication-grouped five-fold CV on the training set,
 repeated with ten random assignments of publications to folds; the test set is used only in section 9.
 
 The slow steps (RDKit 3D descriptors, Sterimol and xTB descriptors, backward elimination, model comparison, tuning, out-of-fold
 predictions) are saved in `outputs/` and reused on the next run unless `--fresh` is given.
+
+## Citation
+
+C. Dai, C. van Koningsveld and J. Vermeer, *Predicting the Site of C–H Borylation with Machine Learning:
+Gains over a Steric Rule*, 2026.
