@@ -1,4 +1,4 @@
-# Versions used for the results in the paper
+# Versions used for the thesis results
 rdkit==2026.3.6
 pandas==3.0.2
 numpy==2.5.3

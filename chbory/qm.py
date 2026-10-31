@@ -141,10 +141,10 @@ def molecule_descriptors(smiles: str, idxs: list[int], xtb: str, cache: str,
 
     With ``rounded`` the deprotonation energy, bond orders and Sterimol are calculated on the structure
     as saved in a mol file (coordinates to 4 decimals), otherwise on the unrounded structure; the Fukui
-    indices always on the unrounded one. The paper values use ``rounded`` for the base-dataset
-    reactions and the unrounded structure for the ten added reactions. The two differ by about
-    0.01 kcal/mol in most deprotonation energies, but an anion optimisation can end in a different
-    minimum, so both are kept to reproduce the paper values exactly.
+    indices always on the unrounded one. The thesis values used ``rounded`` for the course reactions
+    and the unrounded structure for the ten added reactions, which were calculated later. The two
+    differ by about 0.01 kcal/mol in most deprotonation energies, but an anion optimisation can end
+    in a different minimum, so both are kept to reproduce the thesis exactly.
     """
     name = hashlib.md5(smiles.encode()).hexdigest()[:16] + ("" if rounded else "_unrounded")
     path = Path(cache, name + ".json")
@@ -176,7 +176,7 @@ def qm_descriptors(sites: pd.DataFrame, xtb: str, cache: Path, workers: int | No
     """The Sterimol and xTB descriptors (with ``*_rel``) of every site, one row per ``rxn_id`` and ``idx``.
 
     ``unrounded``: reactions whose substrate is calculated on the unrounded structure (see
-    ``molecule_descriptors``; in the paper, the ten added reactions). Substrates are calculated in
+    ``molecule_descriptors``; for the thesis, the ten added reactions). Substrates are calculated in
     parallel (``workers`` processes, default all cores) and saved in ``cache`` (one JSON file per
     substrate), so an interrupted run continues where it stopped.
     """
