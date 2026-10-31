@@ -72,10 +72,10 @@ def load_dataset(path: str | Path) -> pd.DataFrame:
 
 
 def merge_datasets(course: pd.DataFrame, added: pd.DataFrame) -> pd.DataFrame:
-    """Combine the course data with our literature reactions.
+    """Combine the base dataset with the added literature reactions.
 
     Inputs: two DataFrames as returned by ``load_dataset``.
-    Output: one DataFrame with an extra ``source`` column ("course" or "added").
+    Output: one DataFrame with an extra ``source`` column ("course" for the base dataset, "added").
     Raises ``ValueError`` if a ``rxn_id`` appears in both inputs.
     """
     overlap = set(course["rxn_id"]) & set(added["rxn_id"])

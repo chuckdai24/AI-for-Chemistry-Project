@@ -1,5 +1,9 @@
 # Predicting the site of C–H borylation
 
+Source code and data for the paper. Given a substrate and reaction conditions, the model ranks the
+C–H bonds of the substrate by how likely each is to be borylated. `run_all.py` reproduces every
+number, table and figure in the paper with one command.
+
 ```
 python run_all.py --xtb <path to xtb>           # first run about 2 h; later runs reuse the slow steps saved in outputs/
 python run_all.py --xtb <path to xtb> --fresh   # recompute everything
@@ -24,15 +28,20 @@ On Windows the program is `<env>\Library\bin\xtb.exe`.
 The reported numbers were produced with scikit-learn 1.8.0; other versions can change the
 tree ensembles slightly.
 
-## Contents
+## Data
+
+| Path | What it is |
+|---|---|
+| `data/CH_borylation_ChemAI_assessment.csv` | Base dataset. Not ours to redistribute, so not included; place the file at this path before running |
+| `data/new_reactions.csv` | The ten reactions added from the literature (Table S2); `new_reactions_sources.csv` gives the source and evidence for each |
+| `data/precomputed_descriptors.csv` | The Sterimol and GFN2-xTB descriptors as used in the paper; read only with `--precomputed`, otherwise used to check the new calculation |
+
+## Code
 
 | Path | What it is |
 |---|---|
 | `run_all.py` | The pipeline, sections 1–11 (see below) |
-| `chbory/` | The project package: reading and cleaning data, site enumeration, labels, descriptors, models, evaluation |
-| `data/CH_borylation_ChemAI_assessment.csv` | Course dataset (not to be redistributed, so not included here; place the course file at this path before running) |
-| `data/new_reactions.csv` | The ten added reactions (Table S2); `new_reactions_sources.csv` gives the source and evidence for each |
-| `data/precomputed_descriptors.csv` | The Sterimol and GFN2-xTB descriptors as used for the thesis; read only with `--precomputed`, otherwise used to check the new calculation |
+| `chbory/` | The package: reading and cleaning data, site enumeration, labels, descriptors, models, evaluation |
 
 All descriptors are computed by `run_all.py`: Sterimol L, B1, B5 with Morfeus and the Fukui indices,
 C–H deprotonation energy and Wiberg C–H bond order with GFN2-xTB (`chbory/qm.py`); everything else
@@ -44,7 +53,7 @@ reaction conditions, rule score) with RDKit. The xtb results of each substrate a
 
 | Section | Step | Output |
 |---|---|---|
-| 1 | Merge the course data and the ten added reactions; clean (Table S1) | `outputs/data/reactions_merged_clean.csv` |
+| 1 | Merge the base dataset and the ten added reactions; clean (Table S1) | `outputs/data/reactions_merged_clean.csv` |
 | 2 | Enumerate C–H sites, merge equivalent carbons, label borylated and major sites | `outputs/data/sites.csv` |
 | 3 | Set aside 20% of reactions as the test set (by reaction, seed 42) | `outputs/data/test_reaction_ids.txt` |
 | 4 | 57 candidate descriptors in 12 groups (Table 1), including Sterimol and xTB | `outputs/data/qm_descriptors.csv`, `outputs/data/candidate_descriptors.csv`, Fig. 1 |

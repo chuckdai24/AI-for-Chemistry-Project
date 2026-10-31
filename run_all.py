@@ -1,6 +1,6 @@
 """Run the whole pipeline: raw data -> merged dataset -> descriptors -> selection -> models -> figures.
 
-Usage (from this folder):
+Usage (from the repository root):
     python run_all.py --xtb <path to xtb>   # reuse slow steps already saved in outputs/
     python run_all.py --xtb <xtb> --fresh   # recompute everything (about 2 h)
     python run_all.py --precomputed         # without xtb/Morfeus: read the Sterimol and xTB
@@ -10,14 +10,14 @@ Sterimol needs Morfeus (pip install morfeus-ml) and the xTB descriptors need xtb
 (conda install -c conda-forge xtb=6.7.1); see chbory/qm.py.
 
 Inputs (data/):
-    CH_borylation_ChemAI_assessment.csv  course dataset
+    CH_borylation_ChemAI_assessment.csv  base dataset (not included, see README)
     new_reactions.csv                    the ten added reactions (Table S2)
-    precomputed_descriptors.csv          the Sterimol and xTB descriptors as used for the thesis
+    precomputed_descriptors.csv          the Sterimol and xTB descriptors as used for the paper
                                          (only read with --precomputed)
 
 Outputs (outputs/):
     data/     merged and cleaned dataset, site table, descriptor table, test reaction ids
-    results/  every table behind the numbers in the thesis
+    results/  every table behind the numbers in the paper
     figures/  Fig. 1-6 (PNG, and PDF with editable text)
 """
 
@@ -139,7 +139,7 @@ def save_table(frame, name, **kwargs):
 
 
 def save_figure(fig, name):
-    """PNG for drafts, PDF with editable text for the thesis."""
+    """PNG for viewing, PDF with editable text for the paper."""
     fig.savefig(FIGURES / f"{name}.png", bbox_inches="tight")
     fig.savefig(FIGURES / f"{name}.pdf", bbox_inches="tight")
     plt.close(fig)
@@ -150,7 +150,7 @@ def save_figure(fig, name):
 # 1-3. Data: merge, clean, sites, labels, test split
 # ----------------------------------------------------------------------------------------------------
 def load_data():
-    section("1. Merge and clean the course data and the ten added reactions")
+    section("1. Merge and clean the base dataset and the ten added reactions")
     course = load_dataset(DATA / "CH_borylation_ChemAI_assessment.csv")
     added = load_dataset(DATA / "new_reactions.csv")
     merged = merge_datasets(course, added)
@@ -162,7 +162,7 @@ def load_data():
     print("reactions per source:", reactions.drop_duplicates("rxn_id")["source"].value_counts().to_dict())
     print("publications:", reactions["source_DOI"].nunique())
     reactions.to_csv(OUT_DATA / "reactions_merged_clean.csv", index=False)
-    print("saved outputs/data/reactions_merged_clean.csv (one row per product, course + added reactions)")
+    print("saved outputs/data/reactions_merged_clean.csv (one row per product, base + added reactions)")
 
     section("2. Site table and labels")
     sites = build_site_table(reactions)
@@ -221,7 +221,7 @@ def build_descriptors(reactions, sites, train_idx, test_idx):
                                            unrounded=set(reactions.loc[reactions["source"] == "added", "rxn_id"])))
         reference = pd.read_csv(DATA / "precomputed_descriptors.csv").merge(qm, on=["rxn_id", "idx"])
         diff = max((reference[f"{c}_x"] - reference[f"{c}_y"]).abs().max() for c in qm.columns[2:])
-        print(f"largest difference from the thesis values (data/precomputed_descriptors.csv): {diff:.2g}")
+        print(f"largest difference from the paper values (data/precomputed_descriptors.csv): {diff:.2g}")
     candidates = add_candidate_descriptors(features, sites, qm)
     print("deprotonation energy not computed for",
           int(qm.merge(sites[["rxn_id", "idx"]])["deprot"].isna().sum()), "sites (set to 0)")
@@ -671,7 +671,7 @@ def main():
     for d in (OUT_DATA, RESULTS, FIGURES):
         d.mkdir(parents=True, exist_ok=True)
     print("Python", sys.version.split()[0], "| scikit-learn", sklearn.__version__,
-          "(the thesis numbers were produced with scikit-learn 1.8.0)")
+          "(the paper numbers were produced with scikit-learn 1.8.0)")
 
     reactions, sites, train_idx, test_idx, train, test = load_data()
     features, X_train, X_test = build_descriptors(reactions, sites, train_idx, test_idx)
@@ -733,6 +733,6 @@ def main():
 
 if __name__ == "__main__":
     # Multithreaded histogram gradient boosting is not bit-reproducible between runs;
-    # with one OpenMP thread it is deterministic and gives the thesis numbers
+    # with one OpenMP thread it is deterministic and gives the paper numbers
     with threadpool_limits(limits=1, user_api="openmp"):
         main()
