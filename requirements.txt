@@ -1,0 +1,9 @@
+# Versions used for the thesis results
+rdkit==2026.3.6
+pandas==3.0.2
+numpy==2.5.3
+scipy==1.17.1
+scikit-learn==1.8.0
+matplotlib==3.10.8
+morfeus-ml==0.8.0
+# xtb 6.7.1 is a separate program: conda install -c conda-forge xtb=6.7.1
