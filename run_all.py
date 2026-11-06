@@ -43,7 +43,6 @@ import sklearn  # noqa: E402
 from matplotlib.colors import TwoSlopeNorm  # noqa: E402
 from matplotlib.patches import FancyArrowPatch, FancyBboxPatch, Rectangle  # noqa: E402
 from rdkit import Chem, RDLogger  # noqa: E402
-from rdkit.Chem import Draw  # noqa: E402
 from rdkit.Chem.Draw import rdMolDraw2D  # noqa: E402
 from threadpoolctl import threadpool_limits  # noqa: E402
 
@@ -602,7 +601,7 @@ def training_comparison(best, final_params, X_sel, train, assignments, rule_top1
 
 
 # ----------------------------------------------------------------------------------------------------
-# 9. Test set, used once (Fig. 5); 10. prediction examples (Fig. 6)
+# 9. Test set, used once (Fig. 5)
 # ----------------------------------------------------------------------------------------------------
 def test_evaluation(best, final_params, final_features, X_sel, y_train, X_test, test, test_full):
     section("9. Final model on the test set (used once; Fig. 5)")
@@ -630,36 +629,8 @@ def test_evaluation(best, final_params, final_features, X_sel, y_train, X_test, 
     return test_scores, test_top1, test_ci
 
 
-def figure6(best, test, test_full, test_scores, test_top1):
-    section("10. Prediction examples (Fig. 6)")
-    test_class = pd.Series(system_class(test_full), index=test.index).groupby(test["rxn_id"]).first()
-    correct = test_top1[MODELS[best]]
-    picks = {"directed, correct": correct[(test_class == "directed") & (correct == 1)].index[0],
-             "Ir, correct": correct[(test_class == "undirected Ir") & (correct == 1)].index[0],
-             "incorrect": correct[correct == 0].index[0]}
-    mols, highlights, legends = [], [], []
-    for label, rxn in picks.items():
-        rows = test[test["rxn_id"] == rxn]
-        mol = Chem.MolFromSmiles(rows["substrate_smiles_mapped"].iloc[0])
-        for atom in mol.GetAtoms():
-            atom.SetAtomMapNum(0)
-        for idx, p in zip(rows["idx"], test_scores[rows.index]):
-            mol.GetAtomWithIdx(int(idx)).SetProp("atomNote", f"{p:.2f}")
-        mols.append(mol)
-        highlights.append([int(i) for i in rows.loc[is_major(rows), "idx"]])
-        legends.append(f"{label} ({rxn})")
-    options = Draw.MolDrawOptions()
-    options.annotationFontScale = 0.9
-    options.legendFontSize = 20
-    image = Draw.MolsToGridImage(mols, molsPerRow=3, subImgSize=(500, 420), legends=legends, drawOptions=options,
-                                 highlightAtomLists=highlights, returnPNG=False,
-                                 highlightAtomColors=[{i: (0.545, 0.812, 0.545) for i in h} for h in highlights])
-    image.save(FIGURES / "fig6_examples.png")
-    print("saved outputs/figures/fig6_examples.png:", picks)
-
-
 # ----------------------------------------------------------------------------------------------------
-# 11. Workflow schematic (Fig. 1 of the paper)
+# 10. Workflow schematic (Fig. 1 of the paper)
 # ----------------------------------------------------------------------------------------------------
 # The descriptor groups of Table 1 by factor, as drawn in panel b: (group, label in the figure)
 SCHEMATIC_FACTORS = [
@@ -700,8 +671,8 @@ def molecule_image(mol, highlight, colour, notes=None):
 
 def figure_schematic(reactions, sites, test, test_full, test_scores, test_top1, best, selected, final_features):
     """Fig. 1: data -> descriptors -> model selection -> prediction. All numbers come from this run; the
-    example is the undirected Ir test reaction of Fig. 6 with the final model's site scores."""
-    section("11. Workflow schematic (Fig. 1 of the paper)")
+    example is the first correctly predicted undirected Ir test reaction, with the final model's site scores."""
+    section("10. Workflow schematic (Fig. 1 of the paper)")
     test_class = pd.Series(system_class(test_full), index=test.index).groupby(test["rxn_id"]).first()
     correct = test_top1[MODELS[best]]
     rxn = correct[(test_class == "undirected Ir") & (correct == 1)].index[0]
@@ -822,8 +793,8 @@ def main():
     args = parser.parse_args()
     FRESH, WORKERS = args.fresh, args.workers
     if not (DATA / "CH_borylation_ChemAI_assessment.csv").exists():
-        sys.exit("data/CH_borylation_ChemAI_assessment.csv not found: the course dataset is not included "
-                 "in this repository; place it there and run again")
+        sys.exit("data/CH_borylation_ChemAI_assessment.csv not found: run from the repository folder, "
+                 "with the data/ folder as downloaded")
     if not args.precomputed:
         XTB = find_xtb(args.xtb)
         import morfeus  # noqa: F401  (pip install morfeus-ml; or use --precomputed)
@@ -849,10 +820,9 @@ def main():
         best, final_params, X_sel, train, assignments, rule_top1, rxn_class, reactions)
     test_scores, test_top1, test_ci = test_evaluation(
         best, final_params, final_features, X_sel, y_train, X_test, test, test_full)
-    figure6(best, test, test_full, test_scores, test_top1)
     figure_schematic(reactions, sites, test, test_full, test_scores, test_top1, best, selected, final_features)
 
-    section("12. Summary")
+    section("11. Summary")
     best_row = model_cv.set_index("model").loc[best]
 
     def with_ci(table, row):

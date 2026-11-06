@@ -29,8 +29,7 @@ Requires Python ≥ 3.12 (tested with 3.13).
 
 1. Download or clone this repository.
 2. Install the packages: `pip install -r requirements.txt`
-3. Place the course dataset at `data/CH_borylation_ChemAI_assessment.csv` (not included, see Data).
-4. Run, from this folder:
+3. Run, from this folder:
 
 ```
 python run_all.py --precomputed
@@ -62,7 +61,7 @@ in particular of scikit-learn, can change the tree ensembles slightly.
 
 | Path | What it is |
 |---|---|
-| `data/CH_borylation_ChemAI_assessment.csv` | Course dataset (744 product sites from 628 reactions). Not ours to redistribute, so not included; place the file at this path before running |
+| `data/CH_borylation_ChemAI_assessment.csv` | Course dataset (744 product sites from 628 reactions), provided by the course and shared here with permission |
 | `data/new_reactions.csv` | The ten reactions added from the literature (Table S2); `new_reactions_sources.csv` gives the source and evidence for each |
 | `data/precomputed_descriptors.csv` | The Sterimol and GFN2-xTB descriptors as used in the paper; read only with `--precomputed`, otherwise used to check the new calculation |
 
@@ -70,7 +69,7 @@ in particular of scikit-learn, can change the tree ensembles slightly.
 
 | Path | What it is |
 |---|---|
-| `run_all.py` | The pipeline, sections 1–12 (see below) |
+| `run_all.py` | The pipeline, sections 1–11 (see below) |
 | `chbory/` | The package: reading and cleaning data, site enumeration, labels, descriptors, models, evaluation |
 
 All descriptors are computed by `run_all.py`: Sterimol L, B1, B5 with Morfeus and the Fukui indices,
@@ -92,9 +91,8 @@ reaction conditions, rule score) with RDKit. The xtb results of each substrate a
 | 7 | Nine classifiers on the selected descriptors; tuning of the best | Fig. 4, Table S3 | `model_comparison.csv`, `table_s3_tuning.csv`, `fig3_model_comparison` |
 | 8 | Final model vs. baselines on the training set, by catalytic system | Fig. 5 | `fig4_ci_training_by_system.csv`, `fig4_training_set` |
 | 9 | Final model on the test set (used once) | Fig. 6 | `fig5_ci_test.csv`, `fig5_test_set` |
-| 10 | Prediction examples on the test set | – | `fig6_examples.png` |
-| 11 | Workflow schematic: dataset size, descriptor groups kept, and the site scores of a test reaction, all from this run | Fig. 1 | `fig0_workflow` |
-| 12 | Key numbers | – | `summary.csv` |
+| 10 | Workflow schematic: dataset size, descriptor groups kept, and the site scores of a test reaction, all from this run | Fig. 1 | `fig0_workflow` |
+| 11 | Key numbers | – | `summary.csv` |
 
 Tables are in `outputs/results/`, figures (PNG and PDF) in `outputs/figures/`. The output file names
 are numbered by pipeline step, not by figure in the paper (see the Paper column). All choices
