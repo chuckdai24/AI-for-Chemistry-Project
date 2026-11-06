@@ -18,13 +18,14 @@ Inputs (data/):
 Outputs (outputs/):
     data/     merged and cleaned dataset, site table, descriptor table, test reaction ids
     results/  every table behind the numbers in the thesis
-    figures/  Fig. 1-6 (PNG, and PDF with editable text)
+    figures/  every figure of the paper, incl. the workflow schematic (PNG, and PDF with editable text)
 """
 
 from __future__ import annotations
 
 import argparse
 import ast
+import io
 import itertools
 import sys
 import warnings
@@ -34,19 +35,23 @@ import matplotlib
 
 matplotlib.use("Agg")
 
+import matplotlib.image as mpimg  # noqa: E402
 import matplotlib.pyplot as plt  # noqa: E402
 import numpy as np  # noqa: E402
 import pandas as pd  # noqa: E402
 import sklearn  # noqa: E402
 from matplotlib.colors import TwoSlopeNorm  # noqa: E402
+from matplotlib.patches import FancyArrowPatch, FancyBboxPatch, Rectangle  # noqa: E402
 from rdkit import Chem, RDLogger  # noqa: E402
 from rdkit.Chem import Draw  # noqa: E402
+from rdkit.Chem.Draw import rdMolDraw2D  # noqa: E402
 from threadpoolctl import threadpool_limits  # noqa: E402
 
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
 
 from chbory import (  # noqa: E402
+    CANDIDATE_FEATURES,
     CANDIDATE_GROUPS,
     add_candidate_descriptors,
     add_extended_features,
@@ -654,6 +659,157 @@ def figure6(best, test, test_full, test_scores, test_top1):
 
 
 # ----------------------------------------------------------------------------------------------------
+# 11. Workflow schematic (Fig. 1 of the paper)
+# ----------------------------------------------------------------------------------------------------
+# The descriptor groups of Table 1 by factor, as drawn in panel b: (group, label in the figure)
+SCHEMATIC_FACTORS = [
+    ("Steric", [("topological", "topological"), ("buried_volume", "buried volume"), ("sasa", "H surface area"),
+                ("sterimol", "Sterimol")]),
+    ("Electronic", [("gasteiger", "Gasteiger"), ("fukui", "Fukui*"), ("deprot", "deprot. energy*"),
+                    ("wbo", "Wiberg BO*"), ("heteroatoms", "heteroatom positions")]),
+]
+SCHEMATIC_SINGLE = [("Directing", "directing", "directing group"), ("Conditions", "conditions", "reaction conditions"),
+                    ("Rule score", "rule", "rule score")]
+
+
+def site_atoms(mol, idx):
+    """The site carbon and the carbons equivalent to it by symmetry (one site in the site table)."""
+    ranks = list(Chem.CanonicalRankAtoms(mol, breakTies=False))
+    return [a.GetIdx() for a in mol.GetAtoms() if ranks[a.GetIdx()] == ranks[idx]]
+
+
+def molecule_image(mol, highlight, colour, notes=None):
+    """RDKit drawing of a substrate (transparent background) as an image array for imshow."""
+    mol = Chem.Mol(mol)
+    for i, text in (notes or {}).items():
+        mol.GetAtomWithIdx(i).SetProp("atomNote", text)
+    drawer = rdMolDraw2D.MolDraw2DCairo(420, 360)
+    options = drawer.drawOptions()
+    options.setBackgroundColour((1, 1, 1, 0))
+    options.useBWAtomPalette()
+    options.bondLineWidth = 2
+    options.annotationFontScale = 0.9
+    options.highlightRadius = 0.45
+    options.fixedFontSize = 22
+    rgb = tuple(int(colour[i:i + 2], 16) / 255 for i in (1, 3, 5))
+    drawer.DrawMolecule(mol, highlightAtoms=highlight, highlightAtomColors={i: rgb for i in highlight},
+                        highlightBonds=[])
+    drawer.FinishDrawing()
+    return mpimg.imread(io.BytesIO(drawer.GetDrawingText()), format="png")
+
+
+def figure_schematic(reactions, sites, test, test_full, test_scores, test_top1, best, selected, final_features):
+    """Fig. 1: data -> descriptors -> model selection -> prediction. All numbers come from this run; the
+    example is the undirected Ir test reaction of Fig. 6 with the final model's site scores."""
+    section("11. Workflow schematic (Fig. 1 of the paper)")
+    test_class = pd.Series(system_class(test_full), index=test.index).groupby(test["rxn_id"]).first()
+    correct = test_top1[MODELS[best]]
+    rxn = correct[(test_class == "undirected Ir") & (correct == 1)].index[0]
+    rows = test[test["rxn_id"] == rxn]
+    mol = Chem.MolFromSmiles(rows["substrate_smiles_mapped"].iloc[0])
+    for atom in mol.GetAtoms():
+        atom.SetAtomMapNum(0)
+    scores, all_sites = {}, []
+    for idx, p in zip(rows["idx"], test_scores[rows.index]):
+        for i in site_atoms(mol, int(idx)):
+            scores[i] = f"{p:.2f}"
+            all_sites.append(i)
+    major = [i for idx in rows.loc[is_major(rows), "idx"] for i in site_atoms(mol, int(idx))]
+
+    fig = plt.figure(figsize=(7.2, 2.75))
+    ax = fig.add_axes([0, 0, 1, 1])
+    ax.set_xlim(0, 72)
+    ax.set_ylim(0, 27.5)
+    ax.axis("off")
+    panels = [(0.6, "a  Data"), (18.6, "b  Descriptors"), (36.6, "c  Model selection"), (54.6, "d  Prediction")]
+    w, y0, h = 16.8, 0.8, 25.6
+    for x, title in panels:
+        ax.add_patch(FancyBboxPatch((x, y0), w, h, boxstyle="round,pad=0,rounding_size=0.8",
+                                    fc="#F7F7F7", ec=GREYS[0], lw=0.8))
+        ax.text(x + 0.9, y0 + h - 1.4, title, fontsize=7, fontweight="bold", color=INK, va="center")
+    for x, _ in panels[:-1]:
+        ax.add_patch(FancyArrowPatch((x + w + 0.05, 13.6), (x + w + 1.15, 13.6), arrowstyle="-|>",
+                                     mutation_scale=9, color=BLUE, lw=1.2))
+
+    def box(cx, cy, width, height, text, filled, edge=BLUE, size=5.6, bold=False):
+        ax.add_patch(FancyBboxPatch((cx, cy - height / 2), width, height, boxstyle="round,pad=0,rounding_size=0.5",
+                                    fc=BLUE if filled else "white", ec=BLUE if filled else edge, lw=0.6))
+        ax.text(cx + width / 2, cy, text, ha="center", va="center", fontsize=size,
+                color="white" if filled else (INK if edge == BLUE else MUTED),
+                fontweight="bold" if bold else "normal", linespacing=1.3)
+
+    # a: the question and the dataset
+    x = panels[0][0]
+    ax.text(x + w / 2, 22.4, "C–H borylation: which C–H reacts?", ha="center", fontsize=6.5, color=MUTED)
+    ax.imshow(molecule_image(mol, all_sites, LIGHT_BLUE), extent=(x + 1.6, x + w - 1.6, 9.4, 21.8), zorder=3)
+    for i, (big, small) in enumerate([(f"{reactions['rxn_id'].nunique()}", "reactions"),
+                                      (f"{reactions['source_DOI'].nunique()}", "publications"),
+                                      (f"{len(sites):,}", "C–H sites")]):
+        ax.text(x + 6.6, 7.8 - i * 1.9, big, ha="right", fontsize=8, fontweight="bold", color=BLUE, va="center")
+        ax.text(x + 7.2, 7.8 - i * 1.9, small, ha="left", fontsize=6.5, color=INK, va="center")
+    ax.text(x + w / 2, 1.7, "each site labelled: major product or not", ha="center", fontsize=5.8, color=MUTED)
+
+    # b: the 12 descriptor groups of Table 1 by factor; kept groups in blue
+    x = panels[1][0]
+    left, right, cw = x + 0.9, x + 8.5, 7.2
+    for (name, chips), y_head in zip(SCHEMATIC_FACTORS, [21.8, 16.2]):
+        ax.text(left, y_head, name, fontsize=6.5, fontweight="bold", color=INK, va="center")
+        for k, (group, label) in enumerate(chips):
+            cy = y_head - 1.7 - (k // 2) * 1.8
+            if k == len(chips) - 1 and k % 2 == 0:  # an odd last chip spans both columns
+                box(left, cy, right + cw - left, 1.4, label, group in selected, edge=GREYS[1])
+            else:
+                box(left if k % 2 == 0 else right, cy, cw, 1.4, label, group in selected, edge=GREYS[1])
+    ax.text(right + cw, 16.2, "* GFN2-xTB", ha="right", fontsize=5.2, color=MUTED, va="center")
+    for k, (name, group, label) in enumerate(SCHEMATIC_SINGLE):
+        ax.text(left, 8.6 - k * 1.8, name, fontsize=6.5, fontweight="bold", color=INK, va="center")
+        box(right, 8.6 - k * 1.8, cw, 1.4, label, group in selected, edge=GREYS[1])
+    ax.text(x + w / 2, 3.1, f"{len(CANDIDATE_FEATURES)} candidates in {len(CANDIDATE_GROUPS)} groups",
+            ha="center", fontsize=6.5, color=INK)
+    ax.add_patch(Rectangle((x + 2.6, 1.05), 1.0, 0.75, fc=BLUE, ec=BLUE))
+    ax.text(x + 3.9, 1.42, f"kept: {len(selected)} groups, {len(final_features)} descriptors", fontsize=5.8,
+            color=MUTED, va="center")
+
+    # c: publication-grouped CV, then backward elimination and the model comparison
+    x = panels[2][0]
+    ax.text(x + w / 2, 22.3, "5-fold CV grouped by publication", ha="center", fontsize=6.5, color=INK)
+    for r in range(5):
+        for c in range(5):
+            ax.add_patch(Rectangle((x + 3.4 + c * 2.1, 19.6 - r * 1.25), 1.9, 1.0,
+                                   fc=BLUE if r == c else LIGHT_BLUE, ec="white", lw=0.5))
+        ax.text(x + 2.9, 20.1 - r * 1.25, f"fold {r + 1}", ha="right", va="center", fontsize=5.2, color=MUTED)
+    ax.text(x + w / 2, 12.9, f"test fold = unseen papers   (×{N_ASSIGNMENTS} assignments)", ha="center",
+            fontsize=5.6, color=MUTED)
+    steps = ["backward elimination of groups", f"{len(MODELS)} classifiers compared",
+             f"{MODELS[best].lower()} selected"]
+    for k, text in enumerate(steps):
+        yy = 10.6 - k * 2.9
+        box(x + 1.4, yy, w - 2.8, 1.8, text, k == 2, size=6, bold=k == 2)
+        if k < 2:
+            ax.add_patch(FancyArrowPatch((x + w / 2, yy - 0.95), (x + w / 2, yy - 1.95), arrowstyle="-|>",
+                                         mutation_scale=6, color=BLUE, lw=0.8))
+
+    # d: site scores of the example and how predictions are evaluated
+    x = panels[3][0]
+    ax.text(x + w / 2, 22.4, "rank sites by predicted score", ha="center", fontsize=6.5, color=MUTED)
+    ax.imshow(molecule_image(mol, major, "#8BCF8B", notes=scores), extent=(x + 2.4, x + w - 2.4, 12.4, 22.0),
+              zorder=3)
+    ax.text(x + w / 2, 11.2, "evaluation", ha="center", fontsize=6.5, fontweight="bold", color=INK)
+    box(x + 1.4, 8.9, w - 2.8, 2.6, "top-1 correct if the highest-scored\nsite is the observed major site", False,
+        size=5.8)
+    ax.text(x + w / 2, 6.3, "baselines", ha="center", fontsize=5.8, color=MUTED)
+    for k, (name, colour) in enumerate([("steric rule", GREYS[2]), ("random ranking", GREYS[0])]):
+        cx = x + 1.4 + k * 7.2
+        ax.add_patch(FancyBboxPatch((cx, 4.2), 6.8, 1.4, boxstyle="round,pad=0,rounding_size=0.5", fc=colour,
+                                    ec="none"))
+        ax.text(cx + 3.4, 4.9, name, ha="center", va="center", fontsize=5.6, color="white" if k == 0 else INK)
+    ax.text(x + w / 2, 2.2, "held-out test set: 20% of reactions,\nset aside before modelling, used once",
+            ha="center", va="center", fontsize=5.6, color=MUTED, linespacing=1.3)
+    save_figure(fig, "fig0_workflow")
+    print("example reaction:", rxn)
+
+
+# ----------------------------------------------------------------------------------------------------
 def main():
     sys.stdout.reconfigure(encoding="utf-8")  # "−" and "–" in the tables; the Windows console default is not UTF-8
     global FRESH, XTB, WORKERS
@@ -665,6 +821,9 @@ def main():
     parser.add_argument("--workers", type=int, help="parallel processes for xTB (default: all cores)")
     args = parser.parse_args()
     FRESH, WORKERS = args.fresh, args.workers
+    if not (DATA / "CH_borylation_ChemAI_assessment.csv").exists():
+        sys.exit("data/CH_borylation_ChemAI_assessment.csv not found: the course dataset is not included "
+                 "in this repository; place it there and run again")
     if not args.precomputed:
         XTB = find_xtb(args.xtb)
         import morfeus  # noqa: F401  (pip install morfeus-ml; or use --precomputed)
@@ -691,8 +850,9 @@ def main():
     test_scores, test_top1, test_ci = test_evaluation(
         best, final_params, final_features, X_sel, y_train, X_test, test, test_full)
     figure6(best, test, test_full, test_scores, test_top1)
+    figure_schematic(reactions, sites, test, test_full, test_scores, test_top1, best, selected, final_features)
 
-    section("11. Summary")
+    section("12. Summary")
     best_row = model_cv.set_index("model").loc[best]
 
     def with_ci(table, row):

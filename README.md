@@ -1,4 +1,4 @@
-# Predicting the Site of C–H Borylation with Machine Learning: Gains over a Steric Rule
+# Predicting the Site of C–H Borylation with a Random Forest: Gains over a Steric Rule
 
 Chengzhi Dai, Casper van Koningsveld and Jordi Vermeer
 
@@ -6,7 +6,7 @@ Source code and data for the paper. A random forest ranks the C–H bonds of a s
 reaction conditions and predicts the major borylation site across catalytic systems. Each site is
 described by interpretable steric, electronic and directing-group descriptors, the reaction conditions
 and a rule score; the model is compared with random ranking and a steric rule by top-1 accuracy.
-`run_all.py` reproduces every number, table and figure of the paper (except the schematic Fig. 1)
+`run_all.py` reproduces every number, table and figure of the paper, including the workflow schematic (Fig. 1),
 with one command.
 
 ## Main results
@@ -23,31 +23,40 @@ of which backward elimination kept 30 in 7 groups.
 The gain over the steric rule is largest for directed reactions (0.84 vs. 0.13 in publication-grouped
 CV); for undirected Ir catalysis it is not significant for unseen publications (0.54 vs. 0.46).
 
-## Usage
+## Quick start
+
+Requires Python ≥ 3.12 (tested with 3.13).
+
+1. Download or clone this repository.
+2. Install the packages: `pip install -r requirements.txt`
+3. Place the course dataset at `data/CH_borylation_ChemAI_assessment.csv` (not included, see Data).
+4. Run, from this folder:
 
 ```
+python run_all.py --precomputed
+```
+
+This takes about 1.5 h and writes all tables, figures and the merged dataset to `outputs/`.
+`--precomputed` reads the Sterimol and GFN2-xTB descriptors from `data/precomputed_descriptors.csv`,
+so xtb is not needed; the results are identical to the paper.
+
+## Recomputing the Sterimol and xTB descriptors
+
+To calculate these descriptors as well, install the xtb 6.7.1 program and pass it with `--xtb`:
+
+```
+conda install -c conda-forge xtb=6.7.1          # into any conda environment
 python run_all.py --xtb <path to xtb>           # first run about 2 h; later runs reuse the slow steps saved in outputs/
 python run_all.py --xtb <path to xtb> --fresh   # recompute everything
-python run_all.py --precomputed                 # without xtb and Morfeus (see below)
 ```
 
-`--xtb` can be left out if `xtb` is on the PATH or the `XTB` environment variable points to it.
-`--workers N` limits the number of parallel xtb processes (default: all cores).
+On Windows the program is `<env>\Library\bin\xtb.exe`. `--xtb` can be left out if `xtb` is on the
+PATH or the `XTB` environment variable points to it; `--workers N` limits the number of parallel xtb
+processes (default: all cores). Sterimol uses Morfeus (in `requirements.txt`). The new values are
+compared with `data/precomputed_descriptors.csv` in the output (largest difference about 1e-13).
 
-## Requirements
-
-Python ≥ 3.10 with the packages in `requirements.txt` (including Morfeus for Sterimol), and the
-xtb 6.7.1 program for the GFN2-xTB descriptors:
-
-```
-pip install -r requirements.txt
-conda install -c conda-forge xtb=6.7.1     # into any conda environment; pass its xtb with --xtb
-```
-
-On Windows the program is `<env>\Library\bin\xtb.exe`.
-
-The reported numbers were produced with scikit-learn 1.8.0; other versions can change the
-tree ensembles slightly.
+The reported numbers were produced with the package versions in `requirements.txt`; other versions,
+in particular of scikit-learn, can change the tree ensembles slightly.
 
 ## Data
 
@@ -61,7 +70,7 @@ tree ensembles slightly.
 
 | Path | What it is |
 |---|---|
-| `run_all.py` | The pipeline, sections 1–11 (see below) |
+| `run_all.py` | The pipeline, sections 1–12 (see below) |
 | `chbory/` | The package: reading and cleaning data, site enumeration, labels, descriptors, models, evaluation |
 
 All descriptors are computed by `run_all.py`: Sterimol L, B1, B5 with Morfeus and the Fukui indices,
@@ -84,7 +93,8 @@ reaction conditions, rule score) with RDKit. The xtb results of each substrate a
 | 8 | Final model vs. baselines on the training set, by catalytic system | Fig. 5 | `fig4_ci_training_by_system.csv`, `fig4_training_set` |
 | 9 | Final model on the test set (used once) | Fig. 6 | `fig5_ci_test.csv`, `fig5_test_set` |
 | 10 | Prediction examples on the test set | – | `fig6_examples.png` |
-| 11 | Key numbers | – | `summary.csv` |
+| 11 | Workflow schematic: dataset size, descriptor groups kept, and the site scores of a test reaction, all from this run | Fig. 1 | `fig0_workflow` |
+| 12 | Key numbers | – | `summary.csv` |
 
 Tables are in `outputs/results/`, figures (PNG and PDF) in `outputs/figures/`. The output file names
 are numbered by pipeline step, not by figure in the paper (see the Paper column). All choices
@@ -96,5 +106,5 @@ predictions) are saved in `outputs/` and reused on the next run unless `--fresh`
 
 ## Citation
 
-C. Dai, C. van Koningsveld and J. Vermeer, *Predicting the Site of C–H Borylation with Machine Learning:
+C. Dai, C. van Koningsveld and J. Vermeer, *Predicting the Site of C–H Borylation with a Random Forest:
 Gains over a Steric Rule*, 2026.
